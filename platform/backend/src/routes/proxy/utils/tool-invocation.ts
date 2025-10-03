@@ -37,7 +37,7 @@ export const evaluatePolicies = async (
      */
     const toolInput = JSON.parse(toolCallArgs);
 
-    const { isAllowed } = await ToolInvocationPolicyModel.evaluate(
+    const { isAllowed, denyReason } = await ToolInvocationPolicyModel.evaluate(
       chatId,
       agentId,
       toolCallName,
@@ -51,7 +51,12 @@ export const evaluatePolicies = async (
         logprobs: null,
         message: {
           role: "assistant",
-          refusal: `I tried to invoke the ${toolCallName} tool with the following arguments: ${JSON.stringify(toolInput)}. However, I was denied by a tool invocation policy.`,
+          refusal: `
+I tried to invoke the ${toolCallName} tool with the following arguments: ${JSON.stringify(toolInput)}.
+
+However, I was denied by a tool invocation policy:
+
+${denyReason}`,
           content: null,
         },
       };
