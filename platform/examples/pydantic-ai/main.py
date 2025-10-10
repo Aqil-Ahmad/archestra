@@ -1,8 +1,10 @@
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.anthropic import AnthropicModel
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.anthropic import AnthropicProvider
+from pydantic_ai.providers.google import GoogleProvider
 from dotenv import load_dotenv
 import os
 import sys
@@ -36,6 +38,17 @@ def get_model(use_archestra: bool = False):
       model_name=model_name,
       provider=AnthropicProvider(
         api_key=os.getenv("ANTHROPIC_API_KEY"),
+        **extra_provider_kwargs
+      ),
+    )
+  elif provider == "gemini" or provider == "google":
+    if not model_name:
+      model_name = "gemini-2.5-pro"
+
+    model = GoogleModel(
+      model_name=model_name,
+      provider=GoogleProvider(
+        api_key=os.getenv("GEMINI_API_KEY"),
         **extra_provider_kwargs
       ),
     )
