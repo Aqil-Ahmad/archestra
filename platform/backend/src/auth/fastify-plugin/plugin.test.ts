@@ -1,5 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { MockedFunction } from "vitest";
+import { vi } from "vitest";
+import {
+  beforeEach,
+  describe,
+  expect,
+  type MockedFunction,
+  test,
+} from "@/test";
 
 // Mock modules with factory functions to avoid hoisting issues
 vi.mock("@/auth", () => ({
@@ -59,7 +66,7 @@ describe("authPlugin integration", () => {
   });
 
   describe("authentication", () => {
-    it("should allow authenticated session users", async () => {
+    test("should allow authenticated session users", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: { id: "user1" },
         session: { activeOrganizationId: "org1" },
@@ -94,7 +101,7 @@ describe("authPlugin integration", () => {
       expect(mockReply.send).not.toHaveBeenCalled();
     });
 
-    it("should allow valid API key authentication", async () => {
+    test("should allow valid API key authentication", async () => {
       mockBetterAuth.api.getSession.mockRejectedValue(new Error("No session"));
       mockBetterAuth.api.verifyApiKey.mockResolvedValue({
         valid: true,
@@ -135,7 +142,7 @@ describe("authPlugin integration", () => {
       expect(mockReply.status).not.toHaveBeenCalled();
     });
 
-    it("should return 401 for invalid session", async () => {
+    test("should return 401 for invalid session", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue(null);
 
       const mockRequest = {
@@ -163,7 +170,7 @@ describe("authPlugin integration", () => {
       });
     });
 
-    it("should return 401 for invalid API key", async () => {
+    test("should return 401 for invalid API key", async () => {
       mockBetterAuth.api.getSession.mockRejectedValue(new Error("No session"));
       mockBetterAuth.api.verifyApiKey.mockResolvedValue({
         valid: false,
@@ -192,7 +199,7 @@ describe("authPlugin integration", () => {
   });
 
   describe("authorization", () => {
-    it("should return 403 for insufficient permissions", async () => {
+    test("should return 403 for insufficient permissions", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: { id: "user1" },
         session: { activeOrganizationId: "org1" },
@@ -227,7 +234,7 @@ describe("authPlugin integration", () => {
       });
     });
 
-    it("should return 403 for routes without operationId", async () => {
+    test("should return 403 for routes without operationId", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: { id: "user1" },
         session: { activeOrganizationId: "org1" },
@@ -258,7 +265,7 @@ describe("authPlugin integration", () => {
       });
     });
 
-    it("should check specific permissions for configured routes", async () => {
+    test("should check specific permissions for configured routes", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: { id: "user1" },
         session: { activeOrganizationId: "org1" },
@@ -292,7 +299,7 @@ describe("authPlugin integration", () => {
   });
 
   describe("user info population", () => {
-    it("should populate user and organizationId from session", async () => {
+    test("should populate user and organizationId from session", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: { id: "user1" },
         session: { activeOrganizationId: "org1" },
@@ -327,7 +334,7 @@ describe("authPlugin integration", () => {
       expect(mockRequest.organizationId).toBe("org1");
     });
 
-    it("should populate organizationId from UserModel when not in session", async () => {
+    test("should populate organizationId from UserModel when not in session", async () => {
       const mockUser = {
         id: "user1",
         name: "Test User",
@@ -366,7 +373,7 @@ describe("authPlugin integration", () => {
   });
 
   describe("MCP proxy authentication", () => {
-    it("should allow valid internal JWT for MCP proxy endpoints", async () => {
+    test("should allow valid internal JWT for MCP proxy endpoints", async () => {
       mockVerifyInternalJwt.mockResolvedValue({ userId: "system" });
 
       const mockRequest = {
@@ -389,7 +396,7 @@ describe("authPlugin integration", () => {
       expect(mockReply.status).not.toHaveBeenCalled();
     });
 
-    it("should reject invalid internal JWT for MCP proxy endpoints", async () => {
+    test("should reject invalid internal JWT for MCP proxy endpoints", async () => {
       mockVerifyInternalJwt.mockResolvedValue(null);
       mockBetterAuth.api.getSession.mockResolvedValue(null);
 
@@ -414,7 +421,7 @@ describe("authPlugin integration", () => {
   });
 
   describe("edge cases", () => {
-    it("should handle auth service errors gracefully", async () => {
+    test("should handle auth service errors gracefully", async () => {
       mockBetterAuth.api.getSession.mockRejectedValue(
         new Error("Auth service down"),
       );
@@ -441,7 +448,7 @@ describe("authPlugin integration", () => {
       expect(mockReply.status).toHaveBeenCalledWith(401);
     });
 
-    it("should handle user population errors gracefully", async () => {
+    test("should handle user population errors gracefully", async () => {
       mockBetterAuth.api.getSession.mockResolvedValue({
         user: { id: "user1" },
         session: { activeOrganizationId: "org1" },
@@ -474,7 +481,7 @@ describe("authPlugin integration", () => {
   });
 
   describe("plugin registration", () => {
-    it("should register decorators and hooks", () => {
+    test("should register decorators and hooks", () => {
       const mockApp = {
         decorateRequest: vi.fn(),
         addHook: vi.fn(),

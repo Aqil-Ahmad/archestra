@@ -1,7 +1,8 @@
 // biome-ignore-all lint/suspicious/noExplicitAny: test...
 import { MCP_SERVER_TOOL_NAME_SEPARATOR } from "@shared";
-import { AgentModel, InternalMcpCatalogModel } from "@/models";
-import type { Agent, InternalMcpCatalogServerType } from "@/types";
+import { InternalMcpCatalogModel } from "@/models";
+import { beforeEach, describe, expect, test, vi } from "@/test";
+import type { Agent } from "@/types";
 import {
   type ArchestraContext,
   executeArchestraTool,
@@ -9,29 +10,8 @@ import {
   MCP_SERVER_NAME,
 } from "./archestra-mcp-server";
 
-async function createTestAgent(name?: string): Promise<Agent> {
-  return await AgentModel.create({
-    name: name || `Test Agent ${crypto.randomUUID().substring(0, 8)}`,
-    teams: [],
-    labels: [],
-  });
-}
-
-async function createTestInternalMcpCatalogItem(data: {
-  name: string;
-  description?: string;
-  version?: string;
-  serverType: InternalMcpCatalogServerType;
-  serverUrl?: string;
-  repository?: string;
-}) {
-  return await InternalMcpCatalogModel.create({
-    ...data,
-  });
-}
-
 describe("getArchestraMcpTools", () => {
-  it("should return an array of 2 tools", () => {
+  test("should return an array of 2 tools", () => {
     const tools = getArchestraMcpTools();
 
     expect(tools).toHaveLength(2);
@@ -41,14 +21,14 @@ describe("getArchestraMcpTools", () => {
     expect(tools[0]).toHaveProperty("inputSchema");
   });
 
-  it("should have correctly formatted tool names with separator", () => {
+  test("should have correctly formatted tool names with separator", () => {
     const tools = getArchestraMcpTools();
 
     expect(tools[0].name).toContain(MCP_SERVER_TOOL_NAME_SEPARATOR);
     expect(tools[1].name).toContain(MCP_SERVER_TOOL_NAME_SEPARATOR);
   });
 
-  it("should have whoami tool", () => {
+  test("should have whoami tool", () => {
     const tools = getArchestraMcpTools();
     const whoamiTool = tools.find((t) => t.name.endsWith("whoami"));
 
@@ -56,7 +36,7 @@ describe("getArchestraMcpTools", () => {
     expect(whoamiTool?.title).toBe("Who Am I");
   });
 
-  it("should have search_private_mcp_registry tool", () => {
+  test("should have search_private_mcp_registry tool", () => {
     const tools = getArchestraMcpTools();
     const searchTool = tools.find((t) =>
       t.name.endsWith("search_private_mcp_registry"),
@@ -66,7 +46,7 @@ describe("getArchestraMcpTools", () => {
     expect(searchTool?.title).toBe("Search Private MCP Registry");
   });
 
-  it("should not have create_mcp_server_installation_request tool (disabled)", () => {
+  test("should not have create_mcp_server_installation_request tool (disabled)", () => {
     const tools = getArchestraMcpTools();
     const createTool = tools.find((t) =>
       t.name.endsWith("create_mcp_server_installation_request"),
@@ -80,15 +60,15 @@ describe("executeArchestraTool", () => {
   let testAgent: Agent;
   let mockContext: ArchestraContext;
 
-  beforeEach(async () => {
-    testAgent = await createTestAgent("Test Agent");
+  beforeEach(async ({ makeAgent }) => {
+    testAgent = await makeAgent({ name: "Test Agent" });
     mockContext = {
       agent: testAgent,
     };
   });
 
   describe("whoami tool", () => {
-    it("should return agent information", async () => {
+    test("should return agent information", async () => {
       const result = await executeArchestraTool(
         `${MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}whoami`,
         undefined,
@@ -104,8 +84,10 @@ describe("executeArchestraTool", () => {
   });
 
   describe("search_private_mcp_registry tool", () => {
-    it("should return all catalog items when no query provided", async () => {
-      await createTestInternalMcpCatalogItem({
+    test("should return all catalog items when no query provided", async ({
+      makeInternalMcpCatalog,
+    }) => {
+      await makeInternalMcpCatalog({
         name: "Test Server",
         version: "1.0.0",
         description: "A test server",
@@ -128,7 +110,7 @@ describe("executeArchestraTool", () => {
       expect((result.content[0] as any).text).toContain("Test Server");
     });
 
-    it("should return empty message when no items found", async () => {
+    test("should return empty message when no items found", async () => {
       // No items created, so search should return empty
       const result = await executeArchestraTool(
         `${MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}search_private_mcp_registry`,
@@ -141,14 +123,16 @@ describe("executeArchestraTool", () => {
       expect((result.content[0] as any).text).toContain("No MCP servers found");
     });
 
-    it("should handle search with query parameter", async () => {
-      await createTestInternalMcpCatalogItem({
+    test("should handle search with query parameter", async ({
+      makeInternalMcpCatalog,
+    }) => {
+      await makeInternalMcpCatalog({
         name: "Test Server",
         description: "A server for testing",
         serverType: "remote",
       });
 
-      await createTestInternalMcpCatalogItem({
+      await makeInternalMcpCatalog({
         name: "Other Server",
         description: "A different server",
         serverType: "remote",
@@ -168,7 +152,7 @@ describe("executeArchestraTool", () => {
       expect((result.content[0] as any).text).not.toContain("Other Server");
     });
 
-    it("should handle errors gracefully", async () => {
+    test("should handle errors gracefully", async () => {
       // Mock the InternalMcpCatalogModel.findAll method to throw an error
       const originalFindAll = InternalMcpCatalogModel.findAll;
       InternalMcpCatalogModel.findAll = vi
@@ -193,7 +177,7 @@ describe("executeArchestraTool", () => {
 
   // MCP server installation request tool is temporarily disabled
   describe("create_mcp_server_installation_request tool (disabled)", () => {
-    it("should throw error for disabled tool", async () => {
+    test("should throw error for disabled tool", async () => {
       await expect(
         executeArchestraTool(
           `${MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}create_mcp_server_installation_request`,
@@ -211,7 +195,7 @@ describe("executeArchestraTool", () => {
   });
 
   describe("unknown tool", () => {
-    it("should throw error for unknown tool name", async () => {
+    test("should throw error for unknown tool name", async () => {
       await expect(
         executeArchestraTool("unknown_tool", undefined, mockContext),
       ).rejects.toMatchObject({
