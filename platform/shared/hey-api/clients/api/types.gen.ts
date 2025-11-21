@@ -11538,11 +11538,9 @@ export type OpenAiChatCompletionsWithAgentResponse = OpenAiChatCompletionsWithAg
 
 export type GetOptimizationRulesData = {
     body?: never;
-    path: {
-        agentId: string;
-    };
+    path?: never;
     query?: never;
-    url: '/api/agents/{agentId}/optimization-rules';
+    url: '/api/optimization-rules';
 };
 
 export type GetOptimizationRulesErrors = {
@@ -11610,7 +11608,8 @@ export type GetOptimizationRulesResponses = {
      */
     200: Array<{
         id: string;
-        agentId: string;
+        entityType: 'organization' | 'team' | 'agent';
+        entityId: string;
         ruleType: 'content_length' | 'tool_presence';
         conditions: {
             maxLength: number;
@@ -11631,6 +11630,8 @@ export type GetOptimizationRulesResponse = GetOptimizationRulesResponses[keyof G
 export type CreateOptimizationRuleData = {
     body: {
         id?: string;
+        entityType: 'organization' | 'team' | 'agent';
+        entityId: string;
         ruleType: 'content_length' | 'tool_presence';
         conditions: {
             maxLength: number;
@@ -11644,11 +11645,9 @@ export type CreateOptimizationRuleData = {
         createdAt?: unknown;
         updatedAt?: unknown;
     };
-    path: {
-        agentId: string;
-    };
+    path?: never;
     query?: never;
-    url: '/api/agents/{agentId}/optimization-rules';
+    url: '/api/optimization-rules';
 };
 
 export type CreateOptimizationRuleErrors = {
@@ -11716,7 +11715,8 @@ export type CreateOptimizationRuleResponses = {
      */
     200: {
         id: string;
-        agentId: string;
+        entityType: 'organization' | 'team' | 'agent';
+        entityId: string;
         ruleType: 'content_length' | 'tool_presence';
         conditions: {
             maxLength: number;
@@ -11816,7 +11816,8 @@ export type DeleteOptimizationRuleResponse = DeleteOptimizationRuleResponses[key
 export type UpdateOptimizationRuleData = {
     body?: {
         id?: string;
-        agentId?: string;
+        entityType?: 'organization' | 'team' | 'agent';
+        entityId?: string;
         ruleType?: 'content_length' | 'tool_presence';
         conditions?: {
             maxLength: number;
@@ -11902,7 +11903,8 @@ export type UpdateOptimizationRuleResponses = {
      */
     200: {
         id: string;
-        agentId: string;
+        entityType: 'organization' | 'team' | 'agent';
+        entityId: string;
         ruleType: 'content_length' | 'tool_presence';
         conditions: {
             maxLength: number;
