@@ -1,12 +1,6 @@
 import { expect, test } from "../fixtures";
 
 // =============================================================================
-// NOTE: These tests are skipped due to flakiness.
-// The async usage tracking and timing-dependent assertions make them unreliable
-// in CI environments. See token cost limit unit tests for coverage.
-// =============================================================================
-
-// =============================================================================
 // Test Configuration Interface
 // =============================================================================
 
@@ -39,17 +33,17 @@ const openaiConfig: TokenCostLimitTestConfig = {
   }),
 
   buildRequest: (content) => ({
-    model: "gpt-4",
+    model: "test-gpt-4-cost-limit",
     messages: [{ role: "user", content }],
   }),
 
-  modelName: "gpt-4",
+  modelName: "test-gpt-4-cost-limit",
 
   // WireMock returns: prompt_tokens: 100, completion_tokens: 20
   // Cost = (100 * 20000 + 20 * 30000) / 1,000,000 = $2.60
   tokenPrice: {
     provider: "openai",
-    model: "gpt-4",
+    model: "test-gpt-4-cost-limit",
     pricePerMillionInput: "20000.00",
     pricePerMillionOutput: "30000.00",
   },
@@ -67,18 +61,18 @@ const anthropicConfig: TokenCostLimitTestConfig = {
   }),
 
   buildRequest: (content) => ({
-    model: "claude-3-5-sonnet-20241022",
+    model: "test-claude-cost-limit",
     max_tokens: 1024,
     messages: [{ role: "user", content }],
   }),
 
-  modelName: "claude-3-5-sonnet-20241022",
+  modelName: "test-claude-cost-limit",
 
   // WireMock returns: input_tokens: 100, output_tokens: 20
   // Cost = (100 * 20000 + 20 * 30000) / 1,000,000 = $2.60
   tokenPrice: {
     provider: "anthropic",
-    model: "claude-3-5-sonnet-20241022",
+    model: "test-claude-cost-limit",
     pricePerMillionInput: "20000.00",
     pricePerMillionOutput: "30000.00",
   },
@@ -88,7 +82,7 @@ const geminiConfig: TokenCostLimitTestConfig = {
   providerName: "Gemini",
 
   endpoint: (profileId) =>
-    `/v1/gemini/${profileId}/v1beta/models/gemini-2.5-pro:generateContent`,
+    `/v1/gemini/${profileId}/v1beta/models/test-gemini-cost-limit:generateContent`,
 
   headers: (wiremockStub) => ({
     "x-goog-api-key": wiremockStub,
@@ -104,13 +98,13 @@ const geminiConfig: TokenCostLimitTestConfig = {
     ],
   }),
 
-  modelName: "gemini-2.5-pro",
+  modelName: "test-gemini-cost-limit",
 
   // WireMock returns: promptTokenCount: 100, candidatesTokenCount: 20
   // Cost = (100 * 20000 + 20 * 30000) / 1,000,000 = $2.60
   tokenPrice: {
     provider: "gemini",
-    model: "gemini-2.5-pro",
+    model: "test-gemini-cost-limit",
     pricePerMillionInput: "20000.00",
     pricePerMillionOutput: "30000.00",
   },
@@ -127,192 +121,191 @@ const testConfigs: TokenCostLimitTestConfig[] = [
 ];
 
 for (const config of testConfigs) {
-  test.describe
-    .skip(`LLMProxy-TokenCostLimits-${config.providerName}`, () => {
-      let profileId: string;
-      let limitId: string;
-      let tokenPriceId: string;
+  test.describe(`LLMProxy-TokenCostLimits-${config.providerName}`, () => {
+    let profileId: string;
+    let limitId: string;
+    let tokenPriceId: string;
 
-      const wiremockStub = `${config.providerName.toLowerCase()}-token-cost-limit-test`;
+    const wiremockStub = `${config.providerName.toLowerCase()}-token-cost-limit-test`;
 
-      test("blocks request when profile token cost limit is exceeded", async ({
-        request,
-        createAgent,
-        createLimit,
-        createTokenPrice,
-        makeApiRequest,
-        deleteTokenPrice,
-        getTokenPrices,
-      }) => {
-        // 0. Delete any existing token prices for this model and create fresh ones
-        const allPricesResponse = await getTokenPrices(request);
-        if (allPricesResponse.ok()) {
-          const allPrices = await allPricesResponse.json();
-          const existingPrice = allPrices.find(
-            (p: { provider: string; model: string; id: string }) =>
-              p.provider === config.tokenPrice.provider &&
-              p.model === config.tokenPrice.model,
-          );
-          if (existingPrice) {
-            await deleteTokenPrice(request, existingPrice.id).catch(() => {});
-          }
-        }
-
-        // Create fresh token price with exact values for our test
-        const tokenPriceResponse = await createTokenPrice(
-          request,
-          config.tokenPrice,
+    test("blocks request when profile token cost limit is exceeded", async ({
+      request,
+      createAgent,
+      createLimit,
+      createTokenPrice,
+      makeApiRequest,
+      deleteTokenPrice,
+      getTokenPrices,
+    }) => {
+      // 0. Delete any existing token prices for this model and create fresh ones
+      const allPricesResponse = await getTokenPrices(request);
+      if (allPricesResponse.ok()) {
+        const allPrices = await allPricesResponse.json();
+        const existingPrice = allPrices.find(
+          (p: { provider: string; model: string; id: string }) =>
+            p.provider === config.tokenPrice.provider &&
+            p.model === config.tokenPrice.model,
         );
+        if (existingPrice) {
+          await deleteTokenPrice(request, existingPrice.id).catch(() => {});
+        }
+      }
+
+      // Create fresh token price with exact values for our test
+      const tokenPriceResponse = await createTokenPrice(
+        request,
+        config.tokenPrice,
+      );
+      const tokenPrice = await tokenPriceResponse.json();
+      tokenPriceId = tokenPrice.id;
+
+      // 1. Create a test profile
+      const createResponse = await createAgent(
+        request,
+        `${config.providerName} Token Limit Test Profile`,
+      );
+      const profile = await createResponse.json();
+      profileId = profile.id;
+
+      // 2. Create profile-level limit with $2 value (each request costs $2.60, so usage exceeds limit after 1st request)
+      // The limit check blocks when currentUsage >= limitValue, so with $2.60 usage after first request,
+      // the second request will be blocked because $2.60 >= $2
+      const limitResponse = await createLimit(request, {
+        entityType: "agent",
+        entityId: profileId,
+        limitType: "token_cost",
+        limitValue: 2,
+        model: [config.modelName],
+      });
+      const limit = await limitResponse.json();
+      limitId = limit.id;
+
+      // 3. Make first request to set up usage (with long content to bypass optimization rules)
+      const longContent =
+        "This is a very long message to bypass optimization rules that typically only apply to short content under 1000 tokens. ".repeat(
+          100,
+        );
+
+      const initialResponse = await makeApiRequest({
+        request,
+        method: "post",
+        urlSuffix: config.endpoint(profileId),
+        headers: config.headers(wiremockStub),
+        data: config.buildRequest(longContent),
+      });
+
+      if (!initialResponse.ok()) {
+        const errorText = await initialResponse.text();
+        throw new Error(
+          `Initial ${config.providerName} request failed: ${initialResponse.status()} ${errorText}`,
+        );
+      }
+
+      // Wait for async usage tracking to complete
+      // Usage tracking happens asynchronously after the response is sent
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // DEBUG: We are requesting usage limits between the two LLM requests
+      // to make sure the first LLM request counts against limits.
+      // This request is visible in Playwright UI and is helpful in debugging.
+      await makeApiRequest({
+        request,
+        method: "get",
+        urlSuffix: `/api/limits`,
+        ignoreStatusCheck: true,
+      });
+
+      // 4. Second request should be blocked (limit exceeded)
+      const blockedResponse = await makeApiRequest({
+        request,
+        method: "post",
+        urlSuffix: config.endpoint(profileId),
+        headers: config.headers(wiremockStub),
+        data: config.buildRequest(
+          "This should be blocked because we exceeded the limit",
+        ),
+        ignoreStatusCheck: true,
+      });
+
+      // 5. Verify 429 response with token_cost_limit_exceeded code
+      expect(blockedResponse.status()).toBe(429);
+      const errorBody = await blockedResponse.json();
+      expect(errorBody.error.code).toBe("token_cost_limit_exceeded");
+      expect(errorBody.error.type).toBe("rate_limit_exceeded");
+    });
+
+    test("allows request when under limit", async ({
+      request,
+      createAgent,
+      createLimit,
+      createTokenPrice,
+      makeApiRequest,
+    }) => {
+      // 0. Create token price for the model
+      const tokenPriceResponse = await createTokenPrice(
+        request,
+        config.tokenPrice,
+      );
+      if (tokenPriceResponse.ok()) {
         const tokenPrice = await tokenPriceResponse.json();
         tokenPriceId = tokenPrice.id;
+      }
 
-        // 1. Create a test profile
-        const createResponse = await createAgent(
-          request,
-          `${config.providerName} Token Limit Test Profile`,
-        );
-        const profile = await createResponse.json();
-        profileId = profile.id;
-
-        // 2. Create profile-level limit with $2 value (each request costs $2.60, so usage exceeds limit after 1st request)
-        // The limit check blocks when currentUsage >= limitValue, so with $2.60 usage after first request,
-        // the second request will be blocked because $2.60 >= $2
-        const limitResponse = await createLimit(request, {
-          entityType: "agent",
-          entityId: profileId,
-          limitType: "token_cost",
-          limitValue: 2,
-          model: [config.modelName],
-        });
-        const limit = await limitResponse.json();
-        limitId = limit.id;
-
-        // 3. Make first request to set up usage (with long content to bypass optimization rules)
-        const longContent =
-          "This is a very long message to bypass optimization rules that typically only apply to short content under 1000 tokens. ".repeat(
-            100,
-          );
-
-        const initialResponse = await makeApiRequest({
-          request,
-          method: "post",
-          urlSuffix: config.endpoint(profileId),
-          headers: config.headers(wiremockStub),
-          data: config.buildRequest(longContent),
-        });
-
-        if (!initialResponse.ok()) {
-          const errorText = await initialResponse.text();
-          throw new Error(
-            `Initial ${config.providerName} request failed: ${initialResponse.status()} ${errorText}`,
-          );
-        }
-
-        // Wait for async usage tracking to complete
-        // Usage tracking happens asynchronously after the response is sent
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        // DEBUG: We are requesting usage limits between the two LLM requests
-        // to make sure the first LLM request counts against limits.
-        // This request is visible in Playwright UI and is helpful in debugging.
-        await makeApiRequest({
-          request,
-          method: "get",
-          urlSuffix: `/api/limits`,
-          ignoreStatusCheck: true,
-        });
-
-        // 4. Second request should be blocked (limit exceeded)
-        const blockedResponse = await makeApiRequest({
-          request,
-          method: "post",
-          urlSuffix: config.endpoint(profileId),
-          headers: config.headers(wiremockStub),
-          data: config.buildRequest(
-            "This should be blocked because we exceeded the limit",
-          ),
-          ignoreStatusCheck: true,
-        });
-
-        // 5. Verify 429 response with token_cost_limit_exceeded code
-        expect(blockedResponse.status()).toBe(429);
-        const errorBody = await blockedResponse.json();
-        expect(errorBody.error.code).toBe("token_cost_limit_exceeded");
-        expect(errorBody.error.type).toBe("rate_limit_exceeded");
-      });
-
-      test("allows request when under limit", async ({
+      // 1. Create a test profile
+      const createResponse = await createAgent(
         request,
-        createAgent,
-        createLimit,
-        createTokenPrice,
-        makeApiRequest,
-      }) => {
-        // 0. Create token price for the model
-        const tokenPriceResponse = await createTokenPrice(
-          request,
-          config.tokenPrice,
-        );
-        if (tokenPriceResponse.ok()) {
-          const tokenPrice = await tokenPriceResponse.json();
-          tokenPriceId = tokenPrice.id;
-        }
-
-        // 1. Create a test profile
-        const createResponse = await createAgent(
-          request,
-          `${config.providerName} Token Limit OK Test Profile`,
-        );
-        const profile = await createResponse.json();
-        profileId = profile.id;
-
-        // 2. Create profile-level limit with high value
-        const limitResponse = await createLimit(request, {
-          entityType: "agent",
-          entityId: profileId,
-          limitType: "token_cost",
-          limitValue: 1000,
-          model: [config.modelName],
-        });
-        const limit = await limitResponse.json();
-        limitId = limit.id;
-
-        // 3. First request should succeed
-        const response1 = await makeApiRequest({
-          request,
-          method: "post",
-          urlSuffix: config.endpoint(profileId),
-          headers: config.headers(wiremockStub),
-          data: config.buildRequest("Hello"),
-        });
-        expect(response1.ok()).toBeTruthy();
-
-        // 4. Second request should also succeed (still under limit)
-        const response2 = await makeApiRequest({
-          request,
-          method: "post",
-          urlSuffix: config.endpoint(profileId),
-          headers: config.headers(wiremockStub),
-          data: config.buildRequest("Hello again"),
-        });
-        expect(response2.ok()).toBeTruthy();
-      });
-
-      test.afterEach(
-        async ({ request, deleteLimit, deleteAgent, deleteTokenPrice }) => {
-          if (limitId) {
-            await deleteLimit(request, limitId).catch(() => {});
-            limitId = "";
-          }
-          if (profileId) {
-            await deleteAgent(request, profileId).catch(() => {});
-            profileId = "";
-          }
-          if (tokenPriceId) {
-            await deleteTokenPrice(request, tokenPriceId).catch(() => {});
-            tokenPriceId = "";
-          }
-        },
+        `${config.providerName} Token Limit OK Test Profile`,
       );
+      const profile = await createResponse.json();
+      profileId = profile.id;
+
+      // 2. Create profile-level limit with high value
+      const limitResponse = await createLimit(request, {
+        entityType: "agent",
+        entityId: profileId,
+        limitType: "token_cost",
+        limitValue: 1000,
+        model: [config.modelName],
+      });
+      const limit = await limitResponse.json();
+      limitId = limit.id;
+
+      // 3. First request should succeed
+      const response1 = await makeApiRequest({
+        request,
+        method: "post",
+        urlSuffix: config.endpoint(profileId),
+        headers: config.headers(wiremockStub),
+        data: config.buildRequest("Hello"),
+      });
+      expect(response1.ok()).toBeTruthy();
+
+      // 4. Second request should also succeed (still under limit)
+      const response2 = await makeApiRequest({
+        request,
+        method: "post",
+        urlSuffix: config.endpoint(profileId),
+        headers: config.headers(wiremockStub),
+        data: config.buildRequest("Hello again"),
+      });
+      expect(response2.ok()).toBeTruthy();
     });
+
+    test.afterEach(
+      async ({ request, deleteLimit, deleteAgent, deleteTokenPrice }) => {
+        if (limitId) {
+          await deleteLimit(request, limitId).catch(() => {});
+          limitId = "";
+        }
+        if (profileId) {
+          await deleteAgent(request, profileId).catch(() => {});
+          profileId = "";
+        }
+        if (tokenPriceId) {
+          await deleteTokenPrice(request, tokenPriceId).catch(() => {});
+          tokenPriceId = "";
+        }
+      },
+    );
+  });
 }
