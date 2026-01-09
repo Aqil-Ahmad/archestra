@@ -126,3 +126,22 @@ With this configuration, Application Default Credentials (ADC) will automaticall
 
 For non-GKE environments or when Workload Identity isn't available, set `ARCHESTRA_GEMINI_VERTEX_AI_CREDENTIALS_FILE` to the path of a service account JSON key file.
 
+## DeepSeek
+
+DeepSeek provides high-performance language models with an OpenAI-compatible API interface.
+
+### Supported DeepSeek APIs
+
+- **Chat Completions API** (`/chat/completions`) - Fully supported
+
+### DeepSeek Connection Details
+
+- **Base URL**: `http://localhost:9000/v1/deepseek/{agent-id}`
+- **Authentication**: Pass your DeepSeek API key in the `Authorization` header as `Bearer <your-api-key>`
+
+### Important Notes
+
+- **OpenAI Compatibility**: DeepSeek uses an OpenAI-compatible API format, making it easy to switch between providers with minimal code changes.
+- **Reasoning Models**: DeepSeek offers reasoning models (e.g., `deepseek-reasoner`) that include chain-of-thought content in responses via the `reasoning_content` field.
+- **Caching**: DeepSeek API responses include cache hit/miss token statistics (`prompt_cache_hit_tokens`, `prompt_cache_miss_tokens`) for monitoring cache efficiency.
+

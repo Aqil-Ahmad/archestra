@@ -6,6 +6,7 @@ import type {
   Interaction,
   InteractionUtils,
 } from "./llmProviders/common";
+import DeepSeekChatCompletionInteraction from "./llmProviders/deepseek";
 import GeminiGenerateContentInteraction from "./llmProviders/gemini";
 import OpenAiChatCompletionInteraction from "./llmProviders/openai";
 
@@ -116,6 +117,8 @@ export class DynamicInteraction implements InteractionUtils {
       return new OpenAiChatCompletionInteraction(interaction);
     } else if (this.type === "anthropic:messages") {
       return new AnthropicMessagesInteraction(interaction);
+    } else if (this.type === "deepseek:chatCompletions") {
+      return new DeepSeekChatCompletionInteraction(interaction);
     }
     return new GeminiGenerateContentInteraction(interaction);
   }

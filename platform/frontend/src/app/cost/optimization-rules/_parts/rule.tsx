@@ -49,6 +49,7 @@ const providerDictionary: Record<SupportedProvider, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   gemini: "Gemini",
+  deepseek: "DeepSeek",
 };
 
 // Helper to get entity display name

@@ -131,6 +131,59 @@ async function fetchOpenAiModels(apiKey: string): Promise<ModelInfo[]> {
 }
 
 /**
+ * Fetch models from DeepSeek API
+ * DeepSeek uses OpenAI-compatible API
+ */
+async function fetchDeepSeekModels(apiKey: string): Promise<ModelInfo[]> {
+  const baseUrl = config.chat.deepseek.baseUrl;
+  const url = `${baseUrl}/v1/models`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(
+      { status: response.status, error: errorText },
+      "Failed to fetch DeepSeek models",
+    );
+    throw new Error(`Failed to fetch DeepSeek models: ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    data: Array<{
+      id: string;
+      created?: number;
+      owned_by: string;
+    }>;
+  };
+
+  // Filter to only chat-compatible models
+  const chatModelPrefixes = ["deepseek-"];
+
+  // DeepSeek API doesn't include 'created' field in model response
+  const models = data.data
+    .filter((model) => {
+      const id = model.id.toLowerCase();
+      return chatModelPrefixes.some((prefix) => id.startsWith(prefix));
+    })
+    .map((model) => ({
+      id: model.id,
+      displayName: model.id,
+      provider: "deepseek" as const,
+      // Only include createdAt if created field exists
+      ...(model.created && {
+        createdAt: new Date(model.created * 1000).toISOString(),
+      }),
+    }));
+
+  return models;
+}
+
+/**
  * Fetch models from Gemini API
  */
 async function fetchGeminiModels(apiKey: string): Promise<ModelInfo[]> {
@@ -212,6 +265,8 @@ async function getProviderApiKey({
       return config.chat.openai.apiKey || null;
     case "gemini":
       return config.chat.gemini.apiKey || null;
+    case "deepseek":
+      return config.chat.deepseek.apiKey || null;
     default:
       return null;
   }
@@ -225,6 +280,7 @@ const modelFetchers: Record<
   anthropic: fetchAnthropicModels,
   openai: fetchOpenAiModels,
   gemini: fetchGeminiModels,
+  deepseek: fetchDeepSeekModels,
 };
 
 /**
@@ -275,7 +331,7 @@ async function fetchModelsForProvider({
 
   try {
     let models: ModelInfo[] = [];
-    if (["anthropic", "openai"].includes(provider)) {
+    if (["anthropic", "openai", "deepseek"].includes(provider)) {
       if (apiKey) {
         models = await modelFetchers[provider](apiKey);
       }

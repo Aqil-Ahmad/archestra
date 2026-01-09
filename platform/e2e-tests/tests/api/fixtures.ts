@@ -493,7 +493,7 @@ const createOptimizationRule = async (
   rule: {
     entityType: "organization" | "team" | "agent";
     entityId: string;
-    provider: "openai" | "anthropic" | "gemini";
+    provider: "openai" | "anthropic" | "gemini" | "deepseek";
     conditions: OptimizationRuleCondition[];
     targetModel: string;
     enabled?: boolean;
@@ -604,7 +604,7 @@ const getLimits = async (
 const createTokenPrice = async (
   request: APIRequestContext,
   tokenPrice: {
-    provider: "openai" | "anthropic" | "gemini";
+    provider: "openai" | "anthropic" | "gemini" | "deepseek";
     model: string;
     pricePerMillionInput: string;
     pricePerMillionOutput: string;

@@ -35,6 +35,8 @@ export { default as promptRoutes } from "./prompts";
 export const anthropicProxyRoutes = config.llm.anthropic.useV2Routes
   ? anthropicProxyRoutesV2
   : anthropicProxyRoutesV1;
+// DeepSeek proxy routes (uses V1 only, OpenAI-compatible API)
+export { default as deepSeekProxyRoutes } from "./proxy/deepseek";
 // Gemini proxy routes - V1 (legacy) by default, V2 (unified handler) via env var
 export const geminiProxyRoutes = config.llm.gemini.useV2Routes
   ? geminiProxyRoutesV2

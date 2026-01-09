@@ -13,5 +13,6 @@
  * This directory should be removed after full migration to v2 routes.
  */
 export * as anthropic from "./anthropic";
+export * as deepseek from "./deepseek";
 export * as gemini from "./gemini";
 export * as openai from "./openai";

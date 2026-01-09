@@ -37,6 +37,10 @@ export function detectProviderFromModel(model: string): SupportedChatProvider {
     return "openai";
   }
 
+  if (lowerModel.includes("deepseek")) {
+    return "deepseek";
+  }
+
   // Default to anthropic for backwards compatibility
   return "anthropic";
 }
@@ -75,7 +79,8 @@ export async function resolveProviderApiKey(params: {
       secret?.secret?.apiKey ??
       secret?.secret?.anthropicApiKey ??
       secret?.secret?.geminiApiKey ??
-      secret?.secret?.openaiApiKey;
+      secret?.secret?.openaiApiKey ??
+      secret?.secret?.deepseekApiKey;
     if (secretValue) {
       providerApiKey = secretValue as string;
       apiKeySource = resolvedApiKey.scope;
@@ -92,6 +97,9 @@ export async function resolveProviderApiKey(params: {
       apiKeySource = "environment";
     } else if (provider === "gemini" && config.chat.gemini.apiKey) {
       providerApiKey = config.chat.gemini.apiKey;
+      apiKeySource = "environment";
+    } else if (provider === "deepseek" && config.chat.deepseek.apiKey) {
+      providerApiKey = config.chat.deepseek.apiKey;
       apiKeySource = "environment";
     }
   }
@@ -168,6 +176,17 @@ export function createLLMModel(params: {
     });
     // Use .chat() to force Chat Completions API (not Responses API)
     // so our proxy's tool policy evaluation is applied
+    return client.chat(modelName);
+  }
+
+  if (provider === "deepseek") {
+    // URL format: /v1/deepseek/:agentId (SDK appends /chat/completions)
+    // DeepSeek uses OpenAI-compatible API
+    const client = createOpenAI({
+      apiKey,
+      baseURL: `http://localhost:${config.api.port}/v1/deepseek/${agentId}`,
+      headers,
+    });
     return client.chat(modelName);
   }
 
