@@ -7,7 +7,17 @@ description: Agent invocation methods including A2A, incoming email, and ChatOps
 lastUpdated: 2026-01-20
 ---
 
-Agents in Archestra are invoked through Prompts. While the primary method is via the [Chat](/docs/platform-chat) interface or [API](/docs/platform-api-reference), agents can also be triggered through alternative channels like A2A (Agent-to-Agent), incoming email, and ChatOps integrations.
+<!--
+Check ../docs_writer_prompt.md before changing this file.
+-->
+
+![Agent Platform Swarm](/docs/platform-agents-swarm.png)
+
+Agents in Archestra provide a comprehensive no-code solution for building autonomous and semi-autonomous agents that can access your data and work together in swarms. Each agent consists of a User Prompt, System Prompt, assigned tools, and sub-agents, and can be triggered via:
+- Archestra Chat UI
+- A2A (Agent-to-Agent) protocol
+- Microsoft Teams
+- Email
 
 ## A2A (Agent-to-Agent)
 
